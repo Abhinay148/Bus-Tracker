@@ -6,19 +6,109 @@ datasource db {
   provider = "sqlite"
 }
 
+enum NotificationType {
+  AUTOMATIC
+  MANUAL
+}
+
+enum NotificationStatus {
+  PENDING
+  RESPONDED
+}
+
+enum StudentStatus {
+  LEAVING
+  ARRIVED
+  DELAYED
+}
+
 model User {
-  id        Int      @id @default(autoincrement())
+  id        String   @id @default(cuid())
   name      String
   email     String   @unique
   createdAt DateTime @default(now())
+
+  student Student?
 }
 
-model Bus {
-  id          Int      @id @default(autoincrement())
-  busNumber   String   @unique
-  route       String
-  latitude    Float?
-  longitude   Float?
-  status      String   @default("ACTIVE")
-  updatedAt   DateTime @updatedAt
+model Student {
+  id        String        @id @default(cuid())
+  userId    String        @unique
+  user      User          @relation(fields: [userId], references: [id])
+  trips     TripStudent[]
+  notifications Notification[]
+}
+
+model Route {
+  id        String   @id @default(cuid())
+  name      String
+  stops     Stop[]
+  trips     Trip[]
+}
+
+model Stop {
+  id        String         @id @default(cuid())
+  name      String
+  latitude  Float?
+  longitude Float?
+  routeId   String
+  route     Route          @relation(fields: [routeId], references: [id])
+
+  notifications Notification[]
+}
+
+model Trip {
+  id        String        @id @default(cuid())
+  routeId   String
+  route     Route         @relation(fields: [routeId], references: [id])
+  createdAt DateTime      @default(now())
+
+  students  TripStudent[]
+  notifications Notification[]
+}
+
+model TripStudent {
+  tripId    String
+  studentId String
+  status    StudentStatus @default(LEAVING)
+
+  trip      Trip    @relation(fields: [tripId], references: [id])
+  student   Student @relation(fields: [studentId], references: [id])
+
+  @@id([tripId, studentId])
+}
+
+model Notification {
+  id                String             @id @default(cuid())
+  tripId            String
+  studentId         String
+  stopId            String
+  type              NotificationType
+  status            NotificationStatus @default(PENDING)
+  number            Int
+  expiresAt         DateTime?
+  respondedAt       DateTime?
+
+  trip              Trip               @relation(fields: [tripId], references: [id])
+  student           Student            @relation(fields: [studentId], references: [id])
+  stop              Stop               @relation(fields: [stopId], references: [id])
+
+  responseLogs      ResponseLog[]
+
+  createdAt         DateTime           @default(now())
+
+  @@index([tripId, studentId, stopId])
+}
+
+model ResponseLog {
+  id                 String        @id @default(cuid())
+  tripId             String
+  studentId          String
+  stopId             String
+  status             StudentStatus
+  notificationNumber Int
+  createdAt          DateTime      @default(now())
+
+  notificationId     String?
+  notification       Notification? @relation(fields: [notificationId], references: [id])
 }
